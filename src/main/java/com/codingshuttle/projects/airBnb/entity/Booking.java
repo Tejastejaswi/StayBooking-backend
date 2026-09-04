@@ -48,6 +48,8 @@ public class Booking {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+
 // we takan this and added to the payment entity as booking comes first and
 //    @OneToOne(fetch = FetchType.LAZY)
 //    @JoinColumn(name = "payment_id")

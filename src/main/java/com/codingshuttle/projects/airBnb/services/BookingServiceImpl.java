@@ -2,6 +2,7 @@ package com.codingshuttle.projects.airBnb.services;
 
 import com.codingshuttle.projects.airBnb.dto.BookingDto;
 import com.codingshuttle.projects.airBnb.dto.BookingRequest;
+import com.codingshuttle.projects.airBnb.dto.GuestDto;
 import com.codingshuttle.projects.airBnb.entity.*;
 import com.codingshuttle.projects.airBnb.entity.enums.BookingStatus;
 import com.codingshuttle.projects.airBnb.exception.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -58,26 +60,61 @@ public class BookingServiceImpl implements BookingService {
 
         inventoryRepository.saveAll(inventoryList);
 
-        User user = new User();
-        user.setId(1L);// Dummy user
+
         // Create the Booking
         Booking booking = Booking.builder()
                 .bookingStatus(BookingStatus.RESERVED)
                 .hotel(hotel)
                 .room(room)
+                .roomsCount(bookingRequest.getRoomsCount())
                 .checkInDate(bookingRequest.getCheckInDate())
                 .checkOutDate(bookingRequest.getCheckOutDate())
-                .user(user)
+                .user(getCurrentUser())
                 .amount(BigDecimal.TEN)
                 .build();
 
-
+    bookingRepository.save(booking);
         // TODO: calculate dynamic amount
 
 
         return modelMapper.map(booking, BookingDto.class);
 
 
+    }
+    @Override
+    @Transactional
+  public   BookingDto addGuests(Long bookingId, List<GuestDto> guestDtoList){
+        log.info("Adding guests for booking with id :{}",bookingId);
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(()->
+                new ResourceNotFoundException("Booking not found with id: " + bookingId));
+        if(hasBookingExperied(booking)){
+            throw new IllegalStateException("Booking is already experied for booking with id: " + bookingId);
+        }
+
+        if(booking.getBookingStatus() != BookingStatus.RESERVED){
+            throw new IllegalStateException("Booking is not under reserved state , cannot add guests ");
+        }
+
+        for(GuestDto guestDto : guestDtoList){
+            Guest guest = modelMapper.map(guestDto,Guest.class);
+            guest.setUser(getCurrentUser());
+            guestRepository.save(guest);
+            booking.getGuests().add(guest);
+        }
+        booking.setBookingStatus(BookingStatus.Guest_ADDED);
+        bookingRepository.save(booking);
+
+
+        return modelMapper.map(booking, BookingDto.class);
+    }
+
+    public boolean hasBookingExperied(Booking booking){
+        return booking.getCreatedAt().plusMinutes(10).isBefore(LocalDateTime.now());
+    }
+    public User getCurrentUser(){
+        User user = new User();
+        user.setId(1L);
+        return user;
     }
 
 }
